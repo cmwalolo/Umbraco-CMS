@@ -5,8 +5,6 @@ using System.Globalization;
 using System.Linq;
 using System.Xml;
 using System.Xml.Linq;
-using Umbraco.Core.Cache;
-using Umbraco.Core.Configuration.UmbracoSettings;
 using Umbraco.Core.Logging;
 using Umbraco.Core.Models;
 using Umbraco.Core.Models.EntityBase;
@@ -15,6 +13,8 @@ using Umbraco.Core.Models.Rdbms;
 using Umbraco.Core.Persistence.DatabaseModelDefinitions;
 using Umbraco.Core.Persistence.Factories;
 using Umbraco.Core.Persistence.Querying;
+using Umbraco.Core.Cache;
+using Umbraco.Core.Configuration.UmbracoSettings;
 using Umbraco.Core.Persistence.SqlSyntax;
 using Umbraco.Core.Persistence.UnitOfWork;
 
@@ -307,14 +307,14 @@ namespace Umbraco.Core.Persistence.Repositories
         {
             Func<Sql, Sql> translate = s =>
             {
-                return s.Where(GetBaseWhereClause(), new { Id = id })
+                return s.Where(GetBaseWhereClause(), new {Id = id})
                     .OrderByDescending<ContentVersionDto>(x => x.VersionDate, SqlSyntax);
             };
 
             var sqlFull = translate(GetBaseQuery(BaseQueryType.FullMultiple));
             var sqlIds = translate(GetBaseQuery(BaseQueryType.Ids));
 
-            return ProcessQuery(sqlFull, new PagingSqlQuery(sqlIds), true, includeAllVersions: true);
+            return ProcessQuery(sqlFull, new PagingSqlQuery(sqlIds), true,  includeAllVersions:true);
         }
 
         public override IContent GetByVersion(Guid versionId)
@@ -521,8 +521,8 @@ namespace Umbraco.Core.Persistence.Repositories
                     NodeId = dto.NodeId,
                     Published = true
                 };
-                ((Content)entity).PublishedVersionGuid = dto.VersionId;
-                ((Content)entity).PublishedDate = dto.UpdateDate;
+                ((Content) entity).PublishedVersionGuid = dto.VersionId;
+                ((Content) entity).PublishedDate = dto.UpdateDate;
             }
 
             entity.ResetDirtyProperties();
@@ -701,21 +701,21 @@ namespace Umbraco.Core.Persistence.Repositories
                     NodeId = dto.NodeId,
                     Published = true
                 };
-                ((Content)entity).PublishedVersionGuid = dto.VersionId;
-                ((Content)entity).PublishedDate = dto.UpdateDate;
+                ((Content) entity).PublishedVersionGuid = dto.VersionId;
+                ((Content) entity).PublishedDate = dto.UpdateDate;
             }
             else if (publishedStateChanged)
             {
                 dto.DocumentPublishedReadOnlyDto = new DocumentPublishedReadOnlyDto
                 {
-                    VersionId = default(Guid),
-                    VersionDate = default(DateTime),
+                    VersionId = default (Guid),
+                    VersionDate = default (DateTime),
                     Newest = false,
                     NodeId = dto.NodeId,
                     Published = false
                 };
-                ((Content)entity).PublishedVersionGuid = default(Guid);
-                ((Content)entity).PublishedDate = default(DateTime);
+                ((Content) entity).PublishedVersionGuid = default(Guid);
+                ((Content) entity).PublishedDate = default (DateTime);
             }
 
             entity.ResetDirtyProperties();
@@ -943,7 +943,7 @@ order by (umbracoNode.{1}), (umbracoNode.parentID), (umbracoNode.sortOrder)",
         public void ClearPublished(IContent content)
         {
             var sql = "UPDATE cmsDocument SET published=0 WHERE nodeId=@id AND published=1";
-            Database.Execute(sql, new { id = content.Id });
+            Database.Execute(sql, new {id = content.Id});
         }
 
         /// <summary>
