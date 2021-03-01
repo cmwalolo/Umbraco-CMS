@@ -17,6 +17,7 @@ using Umbraco.Core.Cache;
 using Umbraco.Core.Configuration.UmbracoSettings;
 using Umbraco.Core.Persistence.SqlSyntax;
 using Umbraco.Core.Persistence.UnitOfWork;
+using System.Text;
 
 namespace Umbraco.Core.Persistence.Repositories
 {
@@ -837,8 +838,6 @@ order by umbracoNode.{2}, umbracoNode.parentID, umbracoNode.sortOrder",
 
         public XmlDocument BuildPreviewXmlCache()
         {
-            
-
             var xmlDoc = new XmlDocument();
             var doctype = xmlDoc.CreateDocumentType("root", null, null,
                 ApplicationContext.Current.Services.ContentTypeService.GetContentTypesDtd());
@@ -849,41 +848,40 @@ order by umbracoNode.{2}, umbracoNode.parentID, umbracoNode.sortOrder",
             parent.Attributes.Append(pIdAtt);
             xmlDoc.AppendChild(parent);
 
-            //Ensure that only nodes that have published versions are selected
-            var sql = string.Format(@"select umbracoNode.id, umbracoNode.parentID, umbracoNode.sortOrder, cmsPreviewXml.{0}, umbracoNode.{1} from umbracoNode
+            var sql = string.Format(@"select umbracoNode.id, umbracoNode.parentID, umbracoNode.sortOrder, umbracoNode.{0}, cmsPreviewXml.versionId from umbracoNode
 inner join cmsPreviewXml on cmsPreviewXml.nodeId = umbracoNode.id and umbracoNode.nodeObjectType = @type
 inner join cmsDocument on cmsPreviewXml.versionId = cmsDocument.versionId and cmsDocument.newest=1
 where (umbracoNode.trashed = 0)
-order by (umbracoNode.{2}), (umbracoNode.parentID), (umbracoNode.sortOrder)",
-                SqlSyntax.GetQuotedColumnName("xml"),
+order by (umbracoNode.{1}), (umbracoNode.parentID), (umbracoNode.sortOrder)",
                 SqlSyntax.GetQuotedColumnName("level"),
                 SqlSyntax.GetQuotedColumnName("level"));
+
             var args = new object[] { new { type = NodeObjectTypeId } };
+            var rows = Database.Query<dynamic>(sql, args);
 
             XmlElement last = null;
 
-            const long pageSize = 500;
-            int? itemCount = null;
-            long pageIndex = 0;
+            const int pageSize = 500;
+            int? itemCount = rows.Count();
+            int pageIndex = 0;
             do
             {
+                var nodes = rows.Skip(pageIndex * pageSize).Take(pageSize);
+                var versionsCriteria = string.Join(",", nodes.Select(n => string.Format("'{0}'", n.versionId)));
 
-                // Get the paged queries
-                Database.BuildPageQueries<dynamic>(pageIndex * pageSize, pageSize, sql, ref args, out var sqlCount, out var sqlPage);
+                var previewSql = string.Format(@"select cmsPreviewXml.nodeId, cmsPreviewXml.versionId, cmsPreviewXml.{0} from cmsPreviewXml  where cmsPreviewXml.versionId in ({1})",
+                                            SqlSyntax.GetQuotedColumnName("xml"),
+                                            versionsCriteria);
 
-                // get the item count once
-                if (itemCount == null)
-                {
-                    itemCount = Database.ExecuteScalar<int>(sqlCount, args);
-                }
+                var versions = Database.Query<dynamic>(previewSql).ToDictionary(t => t.versionId, t => t);
+
                 pageIndex++;
 
-                // iterate over rows without allocating all items to memory (Query vs Fetch)
-                foreach (var row in Database.Query<dynamic>(sqlPage, args))
+                foreach (var node in nodes)
                 {
-                    string parentId = ((int)row.parentID).ToInvariantString();
-                    string xml = row.xml;
-                    int sortOrder = row.sortOrder;
+                    string parentId = ((int)node.parentID).ToInvariantString();
+                    string xml = versions[node.versionId].xml;
+                    int sortOrder = node.sortOrder;
 
                     //if the parentid is changing
                     if (last != null && last.GetAttribute("parentID") != parentId)

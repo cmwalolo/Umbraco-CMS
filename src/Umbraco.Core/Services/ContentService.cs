@@ -2243,11 +2243,10 @@ namespace Umbraco.Core.Services
 
         public XmlDocument BuildPreviewXmlCache()
         {
-            using (var uow = UowProvider.GetUnitOfWork())
+            using (var uow = UowProvider.GetUnitOfWork(System.Data.IsolationLevel.ReadUncommitted, true))
             {
                 var repository = RepositoryFactory.CreateContentRepository(uow);
                 var result = repository.BuildPreviewXmlCache();
-                uow.Commit();
                 return result;
             }
         }
